@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Particle Lab v6</title>
+  <style>
+    :root {
+      --panel-bg: rgba(12, 12, 14, 0.82);
+      --panel-border: rgba(255,255,255,.09);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.52);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050505;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #panel {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 330px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      padding: 16px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      color: var(--text);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 18px;
+      box-shadow: 0 16px 50px rgba(0,0,0,.35);
+      transition: opacity .2s ease, transform .2s ease;
+      z-index: 10;
+    }
+
+    #panel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(20px);
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: .02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .sectionTitle {
+      margin-top: 15px;
+      margin-bottom: 8px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.07);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: rgba(255,255,255,.36);
+    }
+
+    .control { margin: 11px 0; }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      color: rgba(255,255,255,.78);
+    }
+
+    .value {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: rgba(255,255,255,.48);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: white;
+      height: 3px;
+    }
+
+    select,
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.055);
+      color: white;
+      font-size: 12px;
+      outline: none;
+    }
+
+    input[type="text"]::placeholder {
+      color: rgba(255,255,255,.28);
+    }
+
+    select option {
+      background: #17171a;
+      color: white;
+    }
+
+    .toggleRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: white;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.055);
+      color: var(--text);
+      border-radius: 11px;
+      padding: 10px 11px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:hover { background: rgba(255,255,255,.10); }
+    .full { grid-column: 1 / -1; }
+
+    .timelineMeta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: rgba(255,255,255,.48);
+    }
+
+    .timelineMeta strong {
+      color: rgba(255,255,255,.82);
+      font-weight: 550;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .miniButtons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .hint {
+      margin-top: 13px;
+      padding-top: 11px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      font-size: 10px;
+      line-height: 1.55;
+      color: rgba(255,255,255,.38);
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(15,15,17,.78);
+      border: 1px solid rgba(255,255,255,.08);
+      color: rgba(255,255,255,.76);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 11px;
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* v5: compact independent accordions and secondary R controls. */
+    #panel { width: min(350px, calc(100vw - 24px)); scrollbar-width: thin; }
+    .subtitle { margin-bottom: 10px; }
+    .randomSummary {
+      display: flex; align-items: center; gap: 8px;
+      margin: 12px 0 8px; font-size: 11px; color: var(--muted);
+    }
+    #randomCount { margin-right: auto; font-variant-numeric: tabular-nums; }
+    .randomSummary button { padding: 4px 6px; font-size: 10px; border-radius: 6px; }
+    .section { border-top: 1px solid rgba(255,255,255,.07); }
+    .sectionHeader { display: flex; align-items: center; gap: 8px; min-height: 38px; }
+    .sectionToggle {
+      display: flex; align-items: center; gap: 9px; flex: 1;
+      text-align: left; border: 0; background: transparent; padding: 10px 0;
+      border-radius: 4px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .12em; color: rgba(255,255,255,.65);
+    }
+    .sectionToggle:hover { background: transparent; color: var(--text); }
+    .chevron {
+      width: 6px; height: 6px; border-right: 1px solid currentColor;
+      border-bottom: 1px solid currentColor; transform: rotate(-45deg);
+      transition: transform .18s ease; margin-left: 2px;
+    }
+    .sectionToggle[aria-expanded="true"] .chevron { transform: rotate(45deg); }
+    .sectionBody { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .18s ease; }
+    .sectionBodyInner { min-height: 0; overflow: hidden; }
+    .section.closed .sectionBody { grid-template-rows: 0fr; }
+    .section.closed .sectionBodyInner { visibility: hidden; transition: visibility 0s .18s; }
+    .section .control:first-child { margin-top: 3px; }
+    .row { align-items: center; gap: 8px; }
+    .control label { flex: 1; }
+    .rToggle {
+      display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto !important;
+      color: rgba(255,255,255,.38); font-size: 9px; cursor: pointer;
+      padding: 4px 0 4px 3px; user-select: none;
+    }
+    .rToggle:has(input:checked), .rToggle:has(input:indeterminate) { color: rgba(255,255,255,.68); }
+    .rToggle input { width: 12px; height: 12px; margin: 0; cursor: pointer; }
+    .toggleActions { display: flex; align-items: center; gap: 10px; }
+    .section .hint { margin: 0 0 10px; padding-top: 0; border-top: 0; }
+    .mainActions { padding-top: 10px; border-top: 1px solid rgba(255,255,255,.07); margin-top: 0; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 1px solid rgba(255,255,255,.7); outline-offset: 3px;
+    }
+    @media (max-width: 480px) { #panel { top: 12px; right: 12px; max-height: calc(100dvh - 24px); padding: 13px; } }
+    @media (prefers-reduced-motion: reduce) {
+      .sectionBody, .chevron, .section.closed .sectionBodyInner { transition: none; }
+    }
+
+    /* v6: shortcut hints are part of the controls; no separate Help accordion. */
+    .titleBar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .titleBar .title { margin-bottom: 0; }
+    .titleBar button { border: 0; background: transparent; padding: 3px 0; font-size: 10px; color: var(--muted); }
+    kbd {
+      font: 9px ui-monospace, SFMono-Regular, Consolas, monospace;
+      color: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.12);
+      padding: 2px 4px; border-radius: 4px; line-height: 1; white-space: nowrap;
+    }
+    button:has(kbd) { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #pause kbd { font-size: 8px; padding: 2px 3px; }
+    button:disabled { cursor: default; opacity: .3; }
+    button:disabled:hover { background: rgba(255,255,255,.055); }
+    .parameterActions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+    .lockButton {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 24px; padding: 3px; border: 0; border-radius: 4px;
+      background: transparent; color: rgba(255,255,255,.25);
+    }
+    .lockButton[aria-pressed="true"], .lockButton.mixed { color: rgba(255,255,255,.82); }
+    .lockButton svg { width: 12px; height: 14px; overflow: visible; }
+    .lockButton[aria-pressed="true"] .openShackle { display: none; }
+    .lockButton[aria-pressed="false"] .closedShackle { display: none; }
+    .lockButton.mixed .openShackle { display: none; }
+    .sectionHeader { gap: 6px; }
+    .rToggle { gap: 3px; font-size: 8px; padding-left: 0; }
+    .rToggle input:disabled { cursor: default; opacity: .3; }
+    .rToggle:has(input:disabled) { opacity: .45; }
+    .control .row { gap: 6px; }
+    .control .row > label { min-width: 0; font-size: 11px; }
+    .actionArea { border-top: 1px solid rgba(255,255,255,.07); padding-top: 10px; }
+    .generationMeta { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: rgba(255,255,255,.65); font-size: 11px; }
+    #generationLabel { font-variant-numeric: tabular-nums; }
+    .generationNavigation { display: flex; gap: 5px; }
+    .generationNavigation button { padding: 3px 9px; border-radius: 6px; }
+    .mutationControl { margin: 8px 0 13px; }
+    .mainActions { padding-top: 0; border-top: 0; }
+    .utilityToggles { padding-top: 4px; }
+    .utilityToggles .toggleRow label { font-size: 11px; }
+    .hint { margin-top: 8px; line-height: 1.6; }
+    .codeTools { margin: 15px 0 11px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); }
+    .codeTools label { display: block; margin-bottom: 6px; }
+    textarea {
+      width: 100%; resize: vertical; min-height: 52px; max-height: 180px;
+      padding: 8px; border: 1px solid rgba(255,255,255,.09); border-radius: 9px;
+      background: rgba(255,255,255,.04); color: rgba(255,255,255,.7);
+      font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; outline: none;
+    }
+    textarea:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 2px; }
+    textarea::placeholder { color: rgba(255,255,255,.3); }
+    .inlineNote { font-size: 10px; line-height: 1.45; color: var(--muted); margin-top: 7px; }
+    #showPanel { display: none; position: fixed; top: 16px; right: 16px; z-index: 11; background: var(--panel-bg); padding: 8px 10px; gap: 10px; }
+    #panel.hidden ~ #showPanel { display: flex; }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="panel">
+  <div class="titleBar">
+    <div class="title">Particle Lab v6</div>
+    <button id="hidePanel" type="button" title="Скрыть панель" aria-keyshortcuts="H"><span>Скрыть</span><kbd>H</kbd></button>
+  </div>
+  <div class="subtitle">
+    Новые варианты. Малые изменения. Свои законы движения.
+  </div>
+
+  <div class="randomSummary">
+    <span id="randomCount" aria-live="polite"></span>
+    <button type="button" id="randomAll" title="Разрешить R и M менять все параметры">Все</button>
+    <button type="button" id="randomNone" title="Сохранить все параметры при R и M">Ничего</button>
+  </div>
+  <section class="section" data-section="physics">
+    <div class="sectionHeader">
+      <button type="button" class="sectionToggle" aria-expanded="true" aria-controls="section-physics"><span class="chevron" aria-hidden="true"></span>Физика</button>
+      <label class="rToggle" title="Разрешить R и M менять весь раздел"><span>R/M</span><input type="checkbox" data-r-group="physics" aria-label="R/M: весь раздел Физика"></label>
+    </div>
+    <div class="sectionBody" id="section-physics"><div class="sectionBodyInner">
+  <div id="physicsControls"></div>
+
+    </div></div>
+  </section>
+
+  <section class="section" data-section="spawn">
+    <div class="sectionHeader">
+      <button type="button" class="sectionToggle" aria-expanded="true" aria-controls="section-spawn"><span class="chevron" aria-hidden="true"></span>Рождение</button>
+      <label class="rToggle" title="Разрешить R и M менять весь раздел"><span>R/M</span><input type="checkbox" data-r-group="spawn" aria-label="R/M: весь раздел Рождение"></label>
+    </div>
+    <div class="sectionBody" id="section-spawn"><div class="sectionBodyInner">
+
+  <div class="control">
+    <div class="row"><label for="spawnMode">Форма появления</label></div>
+    <select id="spawnMode">
+      <option value="ring" selected>Кольцо</option>
+      <option value="disk">Диск</option>
+      <option value="edges">Края экрана</option>
+      <option value="screen">Весь экран</option>
+      <option value="line">Горизонтальная полоса</option>
+      <option value="clouds">Два облака</option>
+    </select>
+  </div>
+
+  <div id="spawnControls"></div>
+
+    </div></div>
+  </section>
+
+  <section class="section" data-section="color">
+    <div class="sectionHeader">
+      <button type="button" class="sectionToggle" aria-expanded="true" aria-controls="section-color"><span class="chevron" aria-hidden="true"></span>Цвет</button>
+      <label class="rToggle" title="Разрешить R и M менять весь раздел"><span>R/M</span><input type="checkbox" data-r-group="color" aria-label="R/M: весь раздел Цвет"></label>
+    </div>
+    <div class="sectionBody" id="section-color"><div class="sectionBodyInner">
+
+  <div class="control">
+    <div class="row"><label for="colorSource">Источник цвета</label></div>
+    <select id="colorSource">
+      <option value="distance" selected>Расстояние до цели</option>
+      <option value="speed">Скорость</option>
+      <option value="accel">Ускорение</option>
+      <option value="angle">Угол вокруг цели</option>
+      <option value="x">Положение X</option>
+      <option value="y">Положение Y</option>
+      <option value="seed">Индивидуальный индекс</option>
+    </select>
+  </div>
+
+  <div id="colorControls"></div>
+
+  <div class="toggleRow">
+    <label for="invertColor">Инвертировать градиент</label>
+    <input id="invertColor" type="checkbox">
+  </div>
+
+
+
+    </div></div>
+  </section>
+
+  <section class="section" data-section="presets">
+    <div class="sectionHeader">
+      <button type="button" class="sectionToggle" aria-expanded="true" aria-controls="section-presets"><span class="chevron" aria-hidden="true"></span>Пресеты</button>
+      
+    </div>
+    <div class="sectionBody" id="section-presets"><div class="sectionBodyInner">
+
+  <div class="control">
+    <div class="row"><label for="presetName">Название пресета</label></div>
+    <input id="presetName" type="text" placeholder="Например: Радужная воронка">
+  </div>
+
+  <div class="buttons">
+    <button id="savePreset" class="full"><span>Сохранить параметры .txt</span><kbd>S</kbd></button>
+    <button id="loadPreset" class="full"><span>Загрузить параметры .txt</span><kbd>L</kbd></button>
+  </div>
+
+  <div class="codeTools">
+    <label for="worldCode">Код параметров</label>
+    <textarea id="worldCode" rows="2" spellcheck="false" placeholder="Код PL6… для обмена настройками"></textarea>
+    <div class="miniButtons">
+      <button id="copyWorldCode" type="button">Копировать код</button>
+      <button id="applyWorldCode" type="button">Применить код</button>
+    </div>
+    <div id="codeStatus" class="inlineNote" role="status">Код передаёт настройки; частицы появятся заново.</div>
+  </div>
+
+  <input id="presetFileInput" type="file" accept=".txt,.json,text/plain,application/json" hidden>
+
+    </div></div>
+  </section>
+
+  <section class="section" data-section="history">
+    <div class="sectionHeader">
+      <button type="button" class="sectionToggle" aria-expanded="true" aria-controls="section-history"><span class="chevron" aria-hidden="true"></span>История</button>
+      
+    </div>
+    <div class="sectionBody" id="section-history"><div class="sectionBodyInner">
+
+  <div class="control">
+    <div class="timelineMeta">
+      <span>Перемотка</span>
+      <strong id="historyLabel">LIVE</strong>
+    </div>
+    <input id="historySlider" type="range" min="0" max="0" value="0" step="1">
+    <div class="miniButtons">
+      <button id="rewind1"><span>← 1 сек</span><kbd>Z</kbd></button>
+      <button id="rewind3"><span>← 3 сек</span><kbd>Shift+Z</kbd></button>
+    </div>
+  </div>
+
+    </div></div>
+  </section>
+
+
+
+
+  <div class="actionArea">
+    <div class="generationMeta">
+      <span id="generationLabel" aria-live="polite">Поколение 0</span>
+      <div class="generationNavigation">
+        <button id="previousGeneration" type="button" title="Предыдущее поколение" aria-label="Предыдущее поколение">←</button>
+        <button id="nextGeneration" type="button" title="Следующее поколение" aria-label="Следующее поколение">→</button>
+      </div>
+    </div>
+    <div class="control mutationControl">
+      <div class="row"><label for="mutationStrength">Сила мутации</label><span id="mutationStrengthValue" class="value">15%</span></div>
+      <input id="mutationStrength" type="range" min="0" max="100" step="1" value="15">
+    </div>
+    <div class="buttons mainActions">
+      <button id="randomize" class="full" aria-keyshortcuts="R"><span>Случайные параметры</span><kbd>R</kbd></button>
+      <button id="mutate" class="full" aria-keyshortcuts="M"><span>Мутировать</span><kbd>M</kbd></button>
+      <button id="respawn" class="full" aria-keyshortcuts="N"><span>Заспавнить заново</span><kbd>N</kbd></button>
+      <button id="reset"><span>Сброс</span></button>
+      <button id="pause" aria-keyshortcuts="Space"><span id="pauseText">Пауза</span><kbd>Space</kbd></button>
+      <button id="center" class="full" aria-keyshortcuts="C"><span>Цель в центр</span><kbd>C</kbd></button>
+    </div>
+    <div class="utilityToggles">
+  <div class="toggleRow">
+    <label for="showTarget">Показывать цель</label>
+    <input id="showTarget" type="checkbox" checked>
+  </div>
+
+  <div class="toggleRow">
+    <label for="followMouse">Цель следует за мышкой</label>
+    <input id="followMouse" type="checkbox" checked>
+  </div>
+    </div>
+  </div>
+  <div class="hint" id="inlineHelp">
+    Галочки R/M выбирают параметры для генерации и мутаций. Замок защищает их; вручную значения можно менять.<br>
+    На клавишах указаны английские буквы, но работает любая раскладка.<br>
+    Стрелки у поколения возвращают прошлые варианты. История — последние ~18 секунд движения; старые следы при перемотке очищаются.
+  </div>
+</div>
+
+<button id="showPanel" type="button" aria-keyshortcuts="H"><span>Панель</span><kbd>H</kbd></button>
+<div id="toast" role="status"></div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const panel = document.getElementById("panel");
+const physicsControls = document.getElementById("physicsControls");
+const spawnControls = document.getElementById("spawnControls");
+const colorControls = document.getElementById("colorControls");
+const toast = document.getElementById("toast");
+
+let width = 0;
+let height = 0;
+let dpr = 1;
+let paused = false;
+let particles = [];
+
+let simTime = 0;
+let lastFrameTime = null;
+
+const HISTORY_INTERVAL_MS = 150;
+const HISTORY_MAX_SNAPSHOTS = 120;
+let history = [];
+let historyCursor = -1;
+let lastHistoryCapture = -Infinity;
+
+const target = { x: innerWidth / 2, y: innerHeight / 2 };
+
+const defaults = {
+  particleCount: 9000,
+  attraction: 0.018,
+  repelRadius: 160,
+  repelForce: 0.070,
+  swirl: 0.009,
+  drag: 0.992,
+  noise: 0.0015,
+  trail: 0.14,
+  particleSize: 1.0,
+  speedLimit: 4.5,
+
+  spawnRadius: 0.46,
+  ringThickness: 18,
+
+  colorDistance: 700,
+  hueFar: 270,
+  hueNear: 0,
+  saturation: 95,
+  lightness: 68,
+  colorPower: 1.0,
+  hueDrift: 0
+};
+
+const params = { ...defaults };
+
+const physicsDefs = [
+  ["particleCount", "Частицы", 1000, 20000, 500, 0],
+  ["attraction", "Притяжение", 0.001, 0.060, 0.001, 3],
+  ["repelRadius", "Радиус отталкивания", 20, 500, 5, 0],
+  ["repelForce", "Сила отталкивания", 0.000, 0.200, 0.002, 3],
+  ["swirl", "Закручивание", -0.060, 0.060, 0.001, 3],
+  ["drag", "Инерция", 0.940, 0.9995, 0.0005, 4],
+  ["noise", "Нестабильность", 0.000, 0.010, 0.0002, 4],
+  ["trail", "Длина следа", 0.02, 0.45, 0.01, 2],
+  ["particleSize", "Размер точек", 0.25, 3.0, 0.05, 2],
+  ["speedLimit", "Макс. скорость", 0.5, 12.0, 0.1, 1]
+];
+
+const spawnDefs = [
+  ["spawnRadius", "Радиус кольца", 0.10, 0.70, 0.01, 2],
+  ["ringThickness", "Толщина кольца", 0, 180, 2, 0]
+];
+
+const colorDefs = [
+  ["colorDistance", "Макс. дистанция цвета", 100, 1600, 25, 0],
+  ["hueFar", "Оттенок далеко", 0, 330, 1, 0],
+  ["hueNear", "Оттенок близко", 0, 330, 1, 0],
+  ["saturation", "Насыщенность", 0, 100, 1, 0],
+  ["lightness", "Яркость", 20, 85, 1, 0],
+  ["colorPower", "Контраст градиента", 0.25, 4.0, 0.05, 2],
+  ["hueDrift", "Дрейф оттенка / сек", -80, 80, 1, 0]
+];
+
+const sliders = {};
+
+// Generator preferences are local, separate from presets and simulated history.
+// v6 starts with the requested physics-only selection; old v5 masks do not migrate.
+const UI_STORAGE_KEY = "particle-lab-v6-ui";
+function readStoredUI(key) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key));
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch { return {}; }
+}
+const uiPreferences = readStoredUI(UI_STORAGE_KEY);
+const oldSections = readStoredUI("particle-lab-v5-ui").sections;
+const accordionState = {};
+
+const numericGenerators = {
+  particleCount: () => randomBetween(1000, 20000),
+  attraction: () => randomBetween(0.004, 0.045),
+  repelRadius: () => randomBetween(55, 360),
+  repelForce: () => randomBetween(0.01, 0.16),
+  swirl: () => randomBetween(-0.045, 0.045) * (Math.random() < 0.25 ? 0.15 : 1),
+  drag: () => randomBetween(0.972, 0.9985),
+  noise: () => Math.random() < 0.15 ? 0 : randomBetween(0, 0.006),
+  trail: () => randomBetween(0.035, 0.30),
+  particleSize: () => randomBetween(0.45, 1.8),
+  speedLimit: () => randomBetween(2, 8),
+  spawnRadius: () => randomBetween(0.30, 0.55),
+  ringThickness: () => randomBetween(2, 65),
+  colorDistance: () => randomBetween(300, 1000),
+  hueFar: () => randomBetween(0, 330),
+  hueNear: () => randomBetween(0, 330),
+  saturation: () => randomBetween(0, 100),
+  lightness: () => randomBetween(20, 85),
+  colorPower: () => randomBetween(0.55, 2.2),
+  hueDrift: () => Math.random() < 0.7 ? 0 : randomBetween(-25, 25)
+};
+
+function snapNumber(value, def) {
+  const stepped = def.min + Math.round((value - def.min) / def.step) * def.step;
+  return Number(Math.min(def.max, Math.max(def.min, stepped)).toFixed(8));
+}
+
+function numericParameter(def, group) {
+  const [key, name, min, max, step, digits] = def;
+  return {
+    key, name, group, type: "number", min, max, step, digits,
+    defaultRandom: group === "physics" && key !== "particleCount",
+    get: () => params[key],
+    set: value => { params[key] = value; },
+    randomize() { return snapNumber(numericGenerators[key](), this); },
+    mutate(current, strength) {
+      if (strength <= 0) return current;
+      const amplitude = Math.max(step, (max - min) * strength * 0.25);
+      let next = current + randomBetween(-amplitude, amplitude);
+      // Reflect at limits, avoiding a bias toward an immovable extreme value.
+      if (next < min) next = min + (min - next);
+      if (next > max) next = max - (next - max);
+      return snapNumber(next, this);
+    }
+  };
+}
+
+function choiceParameter(key, name, group, choices) {
+  return {
+    key, name, group, type: "choice", choices, defaultRandom: false,
+    get: () => document.getElementById(key).value,
+    set: value => { document.getElementById(key).value = value; },
+    randomize: () => choices[Math.floor(Math.random() * choices.length)],
+    mutate(current, strength) {
+      if (Math.random() >= strength * 0.65) return current;
+      const otherChoices = choices.filter(value => value !== current);
+      return otherChoices[Math.floor(Math.random() * otherChoices.length)];
+    }
+  };
+}
+
+// Both generation strategies use the same definitions and value adapters.
+const parameterDefinitions = [
+  ...physicsDefs.map(def => numericParameter(def, "physics")),
+  choiceParameter("spawnMode", "Форма появления", "spawn", ["ring", "disk", "edges", "screen", "line", "clouds"]),
+  ...spawnDefs.map(def => numericParameter(def, "spawn")),
+  choiceParameter("colorSource", "Источник цвета", "color", ["distance", "speed", "accel", "angle", "x", "y", "seed"]),
+  ...colorDefs.map(def => numericParameter(def, "color")),
+  {
+    key: "invertColor", name: "Инвертировать градиент", group: "color",
+    type: "boolean", defaultRandom: false,
+    get: () => document.getElementById("invertColor").checked,
+    set: value => { document.getElementById("invertColor").checked = value; },
+    randomize: () => Math.random() < 0.5,
+    mutate: (current, strength) => Math.random() < strength * 0.65 ? !current : current
+  }
+];
+const randomEnabled = Object.fromEntries(parameterDefinitions.map(def => [
+  def.key, typeof uiPreferences.random?.[def.key] === "boolean"
+    ? uiPreferences.random[def.key] : def.defaultRandom
+]));
+const lockedParameters = Object.fromEntries(parameterDefinitions.map(def => [
+  def.key, typeof uiPreferences.locks?.[def.key] === "boolean" ? uiPreferences.locks[def.key] : false
+]));
+let mutationStrength = typeof uiPreferences.mutationStrength === "number" && Number.isFinite(uiPreferences.mutationStrength)
+  ? Math.round(Math.max(0, Math.min(100, uiPreferences.mutationStrength))) : 15;
+const randomCheckboxes = {};
+const lockButtons = {};
+const lockIcon = `<svg viewBox="0 0 16 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3">
+  <rect x="2.5" y="8" width="11" height="8" rx="2"/>
+  <path class="closedShackle" d="M5 8V5a3 3 0 0 1 6 0v3"/>
+  <path class="openShackle" d="M5 8V5a3 3 0 0 1 6 0"/>
+  <path d="M8 11v2"/>
+</svg>`;
+
+function canGenerate(def) {
+  return randomEnabled[def.key] && !lockedParameters[def.key];
+}
+
+function saveUIPreferences() {
+  try {
+    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({
+      random: randomEnabled, locks: lockedParameters,
+      sections: accordionState, mutationStrength
+    }));
+  } catch { /* UI remains usable when local storage is unavailable. */ }
+}
+
+function createRandomToggle(def) {
+  const label = document.createElement("label");
+  label.className = "rToggle";
+  label.title = `Разрешить R и M менять «${def.name}»`;
+  const text = document.createElement("span");
+  text.textContent = "R/M";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.dataset.rKey = def.key;
+  input.setAttribute("aria-label", `R/M: ${def.name}`);
+  input.checked = randomEnabled[def.key];
+  input.addEventListener("change", () => {
+    randomEnabled[def.key] = input.checked;
+    updateRandomUI();
+    saveUIPreferences();
+  });
+  randomCheckboxes[def.key] = input;
+  label.append(text, input);
+  return label;
+}
+
+function createLockButton(def) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "lockButton";
+  button.dataset.lockKey = def.key;
+  button.innerHTML = lockIcon;
+  button.addEventListener("click", () => {
+    lockedParameters[def.key] = !lockedParameters[def.key];
+    updateRandomUI();
+    saveUIPreferences();
+  });
+  lockButtons[def.key] = button;
+  return button;
+}
+
+function createParameterActions(def) {
+  const actions = document.createElement("div");
+  actions.className = "parameterActions";
+  actions.append(createRandomToggle(def), createLockButton(def));
+  return actions;
+}
+
+function updateRandomUI() {
+  let count = 0;
+  for (const def of parameterDefinitions) {
+    if (canGenerate(def)) count++;
+    const locked = lockedParameters[def.key];
+    const checkbox = randomCheckboxes[def.key];
+    if (checkbox) { checkbox.checked = randomEnabled[def.key]; checkbox.disabled = locked; }
+    const button = lockButtons[def.key];
+    if (button) {
+      button.setAttribute("aria-pressed", String(locked));
+      button.title = `${locked ? "Снять фиксацию" : "Зафиксировать"}: ${def.name}`;
+      button.setAttribute("aria-label", button.title);
+    }
+  }
+  document.getElementById("randomCount").textContent = `R/M изменяют: ${count} / ${parameterDefinitions.length}`;
+  for (const input of document.querySelectorAll("[data-r-group]")) {
+    const available = parameterDefinitions.filter(def => def.group === input.dataset.rGroup && !lockedParameters[def.key]);
+    const enabled = available.filter(def => randomEnabled[def.key]).length;
+    input.checked = available.length > 0 && enabled === available.length;
+    input.indeterminate = enabled > 0 && enabled < available.length;
+    input.disabled = !available.length;
+  }
+  for (const button of document.querySelectorAll("[data-lock-group]")) {
+    const defs = parameterDefinitions.filter(def => def.group === button.dataset.lockGroup);
+    const locked = defs.filter(def => lockedParameters[def.key]).length;
+    button.setAttribute("aria-pressed", locked === defs.length ? "true" : locked ? "mixed" : "false");
+    button.classList.toggle("mixed", locked > 0 && locked < defs.length);
+    button.title = locked === defs.length ? "Снять фиксацию раздела" : "Зафиксировать весь раздел";
+    button.setAttribute("aria-label", button.title);
+  }
+}
+
+function setRandomGroup(group, enabled) {
+  for (const def of parameterDefinitions) {
+    if (group === null || def.group === group) randomEnabled[def.key] = enabled;
+  }
+  updateRandomUI();
+  saveUIPreferences();
+}
+
+function initializeUI() {
+  for (const section of document.querySelectorAll("[data-section]")) {
+    const key = section.dataset.section;
+    const button = section.querySelector(".sectionToggle");
+    const body = section.querySelector(".sectionBody");
+    const setOpen = open => {
+      accordionState[key] = open;
+      section.classList.toggle("closed", !open);
+      button.setAttribute("aria-expanded", String(open));
+      body.inert = !open;
+      body.setAttribute("aria-hidden", String(!open));
+    };
+    const saved = uiPreferences.sections?.[key] ?? oldSections?.[key];
+    setOpen(typeof saved === "boolean" ? saved : key === "physics");
+    button.addEventListener("click", () => { setOpen(!accordionState[key]); saveUIPreferences(); });
+    if (["physics", "spawn", "color"].includes(key)) {
+      const lock = document.createElement("button");
+      lock.type = "button"; lock.className = "lockButton";
+      lock.dataset.lockGroup = key; lock.innerHTML = lockIcon;
+      lock.addEventListener("click", () => {
+        const defs = parameterDefinitions.filter(def => def.group === key);
+        const shouldLock = !defs.every(def => lockedParameters[def.key]);
+        for (const def of defs) lockedParameters[def.key] = shouldLock;
+        updateRandomUI(); saveUIPreferences();
+      });
+      section.querySelector(".sectionHeader").append(lock);
+    }
+  }
+  for (const def of parameterDefinitions.filter(def => def.type !== "number")) {
+    const control = document.getElementById(def.key);
+    const wrap = control.closest(".control, .toggleRow");
+    const actions = createParameterActions(def);
+    if (def.type === "boolean") {
+      const right = document.createElement("div");
+      right.className = "toggleActions";
+      right.append(control, actions); wrap.append(right);
+    } else wrap.querySelector(".row").append(actions);
+  }
+  for (const input of document.querySelectorAll("[data-r-group]")) {
+    input.addEventListener("change", () => setRandomGroup(input.dataset.rGroup, input.checked));
+  }
+  document.getElementById("randomAll").addEventListener("click", () => setRandomGroup(null, true));
+  document.getElementById("randomNone").addEventListener("click", () => setRandomGroup(null, false));
+  const strength = document.getElementById("mutationStrength");
+  strength.value = mutationStrength;
+  const updateStrength = () => {
+    mutationStrength = Number(strength.value);
+    document.getElementById("mutationStrengthValue").textContent = `${mutationStrength}%`;
+    saveUIPreferences();
+  };
+  document.getElementById("mutationStrengthValue").textContent = `${mutationStrength}%`;
+  strength.addEventListener("input", updateStrength);
+  updateRandomUI();
+}
+
+function fmt(v, digits) {
+  return Number(v).toFixed(digits);
+}
+
+function buildControls(defs, container) {
+  defs.forEach(([key, name, min, max, step, digits]) => {
+    const wrap = document.createElement("div");
+    wrap.className = "control";
+
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const label = document.createElement("label");
+    label.textContent = name;
+
+    const value = document.createElement("span");
+    value.className = "value";
+
+    const input = document.createElement("input");
+    input.id = key;
+    label.htmlFor = key;
+    input.type = "range";
+    input.min = min;
+    input.max = max;
+    input.step = step;
+    input.value = params[key];
+
+    const update = () => {
+      params[key] = Number(input.value);
+      value.textContent = fmt(params[key], digits);
+
+      if (key === "particleCount") {
+        setParticleCount(Math.round(params.particleCount));
+      }
+      if (paused) renderStaticState();
+    };
+
+    input.addEventListener("input", update);
+
+    row.append(label, value, createParameterActions(parameterDefinitions.find(def => def.key === key)));
+    wrap.append(row, input);
+    container.appendChild(wrap);
+
+    sliders[key] = { input, value, digits, label };
+    update();
+  });
+}
+
+function syncControls() {
+  updateSpawnLabels();
+  for (const key in sliders) {
+    sliders[key].input.value = params[key];
+    sliders[key].value.textContent = fmt(params[key], sliders[key].digits);
+  }
+}
+
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  width = innerWidth;
+  height = innerHeight;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) {
+    centerTarget();
+  }
+}
+
+addEventListener("resize", resize);
+
+function spawnAtRing(p) {
+  const angle = Math.random() * Math.PI * 2;
+
+  // Кольцо всегда остаётся кругом, независимо от пропорций монитора.
+  const baseRadius = Math.min(width, height) * params.spawnRadius;
+  const jitter = (Math.random() - 0.5) * params.ringThickness;
+  const r = Math.max(0, baseRadius + jitter);
+
+  const cx = width / 2;
+  const cy = height / 2;
+
+  p.x = cx + Math.cos(angle) * r;
+  p.y = cy + Math.sin(angle) * r;
+}
+
+function spawnAtDisk(p) {
+  const angle = Math.random() * Math.PI * 2;
+  const maxR = Math.min(width, height) * params.spawnRadius;
+  const r = Math.sqrt(Math.random()) * maxR;
+
+  p.x = width / 2 + Math.cos(angle) * r;
+  p.y = height / 2 + Math.sin(angle) * r;
+}
+
+function spawnAtEdges(p) {
+  const edge = Math.floor(Math.random() * 4);
+  const margin = Math.max(2, params.ringThickness);
+
+  if (edge === 0) {
+    p.x = Math.random() * width;
+    p.y = Math.random() * margin;
+  } else if (edge === 1) {
+    p.x = Math.random() * width;
+    p.y = height - Math.random() * margin;
+  } else if (edge === 2) {
+    p.x = Math.random() * margin;
+    p.y = Math.random() * height;
+  } else {
+    p.x = width - Math.random() * margin;
+    p.y = Math.random() * height;
+  }
+}
+
+function spawnOnScreen(p) {
+  p.x = Math.random() * width;
+  p.y = Math.random() * height;
+}
+
+function spawnOnLine(p) {
+  const halfLength = Math.min(width, height) * params.spawnRadius;
+  p.x = width / 2 + randomBetween(-halfLength, halfLength);
+  p.y = height / 2 + randomBetween(-params.ringThickness / 2, params.ringThickness / 2);
+}
+
+function spawnInClouds(p) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const separation = Math.min(width, height) * params.spawnRadius;
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.sqrt(Math.random()) * Math.max(2, params.ringThickness);
+  p.x = width / 2 + side * separation + Math.cos(angle) * radius;
+  p.y = height / 2 + Math.sin(angle) * radius;
+}
+
+const spawnStrategies = {
+  ring: spawnAtRing, disk: spawnAtDisk, edges: spawnAtEdges,
+  screen: spawnOnScreen, line: spawnOnLine, clouds: spawnInClouds
+};
+
+function placeParticle(p) {
+  const mode = document.getElementById("spawnMode").value;
+  (spawnStrategies[mode] || spawnAtRing)(p);
+}
+
+function updateSpawnLabels() {
+  const mode = document.getElementById("spawnMode").value;
+  const labels = {
+    ring: ["Радиус кольца", "Толщина кольца"],
+    disk: ["Радиус диска", "Толщина (для кольца/краёв)"],
+    edges: ["Радиус (для кольца/диска)", "Отступ от краёв"],
+    screen: ["Радиус (для кольца/диска)", "Толщина (для других форм)"],
+    line: ["Полудлина полосы", "Ширина полосы"],
+    clouds: ["Расстояние между облаками", "Радиус облака"]
+  };
+  if (sliders.spawnRadius && sliders.ringThickness) {
+    const names = labels[mode] || labels.ring;
+    sliders.spawnRadius.label.textContent = names[0];
+    sliders.ringThickness.label.textContent = names[1];
+    sliders.spawnRadius.input.title = mode === "clouds" ? "Половина расстояния между центрами, относительно меньшей стороны экрана" : "Относительно меньшей стороны экрана";
+    sliders.ringThickness.input.title = "В пикселях; не влияет на диск и весь экран";
+  }
+}
+
+
+class Particle {
+  constructor() {
+    this.seed = Math.random();
+    this.baseSize = 0.35 + Math.random() * 0.85;
+    this.accel = 0;
+    this.reset();
+  }
+
+  reset() {
+    placeParticle(this);
+
+    this.vx = (Math.random() - 0.5) * 0.8;
+    this.vy = (Math.random() - 0.5) * 0.8;
+    this.accel = 0;
+  }
+
+  update(time) {
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    const distSq = dx * dx + dy * dy;
+    const distance = Math.sqrt(distSq) || 0.0001;
+
+    const nx = dx / distance;
+    const ny = dy / distance;
+
+    let ax = 0;
+    let ay = 0;
+
+    ax += nx * params.attraction;
+    ay += ny * params.attraction;
+
+    if (distance < params.repelRadius) {
+      const normalized = 1 - distance / params.repelRadius;
+      const force = normalized * normalized * params.repelForce;
+      ax -= nx * force;
+      ay -= ny * force;
+    }
+
+    ax += -ny * params.swirl;
+    ay +=  nx * params.swirl;
+
+    if (params.noise > 0) {
+      const t = time * 0.00045;
+      ax += Math.sin(t * 1.21 + this.seed * 1000) * params.noise;
+      ay += Math.cos(t * 0.97 + this.seed * 1310) * params.noise;
+    }
+
+    this.accel = Math.hypot(ax, ay);
+
+    this.vx += ax;
+    this.vy += ay;
+
+    this.vx *= params.drag;
+    this.vy *= params.drag;
+
+    const speed = Math.hypot(this.vx, this.vy);
+    if (speed > params.speedLimit) {
+      const k = params.speedLimit / speed;
+      this.vx *= k;
+      this.vy *= k;
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    const margin = 260;
+    if (
+      this.x < -margin || this.x > width + margin ||
+      this.y < -margin || this.y > height + margin
+    ) {
+      this.reset();
+    }
+  }
+
+  getColorValue() {
+    const source = document.getElementById("colorSource").value;
+
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    const speed = Math.hypot(this.vx, this.vy);
+
+    let t = 0;
+
+    if (source === "distance") {
+      // 0 = далеко, 1 = близко
+      t = 1 - Math.min(distance / params.colorDistance, 1);
+    }
+    else if (source === "speed") {
+      t = Math.min(speed / Math.max(params.speedLimit, 0.001), 1);
+    }
+    else if (source === "accel") {
+      const reference = Math.max(params.attraction + Math.abs(params.swirl) + params.repelForce, 0.001);
+      t = Math.min(this.accel / reference, 1);
+    }
+    else if (source === "angle") {
+      let a = Math.atan2(this.y - target.y, this.x - target.x);
+      t = (a + Math.PI) / (Math.PI * 2);
+    }
+    else if (source === "x") {
+      t = Math.min(Math.max(this.x / width, 0), 1);
+    }
+    else if (source === "y") {
+      t = Math.min(Math.max(this.y / height, 0), 1);
+    }
+    else if (source === "seed") {
+      t = this.seed;
+    }
+
+    if (document.getElementById("invertColor").checked) {
+      t = 1 - t;
+    }
+
+    t = Math.pow(Math.min(Math.max(t, 0), 1), params.colorPower);
+
+    return t;
+  }
+
+  draw(time) {
+    const speed = Math.hypot(this.vx, this.vy);
+    const alpha = Math.min(0.98, 0.30 + speed * 0.11);
+    const radius = this.baseSize * params.particleSize;
+
+    const t = this.getColorValue();
+
+    // В HSL: 270° ≈ фиолетовый, 0° = красный.
+    // Это именно видимый спектральный градиент; ультрафиолет и инфракрасный глаз не видит.
+    const drift = params.hueDrift * (time / 1000);
+    let hue = params.hueFar + (params.hueNear - params.hueFar) * t + drift;
+
+    hue = ((hue % 360) + 360) % 360;
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${hue}, ${params.saturation}%, ${params.lightness}%, ${alpha})`;
+    ctx.fill();
+  }
+}
+
+function setParticleCount(count) {
+  count = Math.max(0, Math.round(count));
+  while (particles.length < count) particles.push(new Particle());
+  if (particles.length > count) particles.length = count;
+}
+
+function resetParticles() {
+  for (const p of particles) p.reset();
+  clearCanvas();
+}
+
+function clearCanvas() {
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#050505";
+  ctx.fillRect(0, 0, width, height);
+}
+
+function centerTarget() {
+  target.x = width / 2;
+  target.y = height / 2;
+  if (paused) renderStaticState();
+}
+
+function drawTarget() {
+  if (!document.getElementById("showTarget").checked) return;
+
+  const radius = 54;
+  const g = ctx.createRadialGradient(
+    target.x, target.y, 0,
+    target.x, target.y, radius
+  );
+
+  g.addColorStop(0, "rgba(235, 242, 255, .22)");
+  g.addColorStop(.16, "rgba(205, 220, 255, .13)");
+  g.addColorStop(1, "rgba(170, 195, 255, 0)");
+
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(245, 248, 255, .72)";
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 2.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function makeSnapshot() {
+  const stride = 7;
+  const data = new Float32Array(particles.length * stride);
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const o = i * stride;
+    data[o] = p.x;
+    data[o + 1] = p.y;
+    data[o + 2] = p.vx;
+    data[o + 3] = p.vy;
+    data[o + 4] = p.accel;
+    data[o + 5] = p.seed;
+    data[o + 6] = p.baseSize;
+  }
+
+  return {
+    time: simTime,
+    targetX: target.x,
+    targetY: target.y,
+    params: { ...params },
+    spawnMode: document.getElementById("spawnMode").value,
+    colorSource: document.getElementById("colorSource").value,
+    invertColor: document.getElementById("invertColor").checked,
+    showTarget: document.getElementById("showTarget").checked,
+    followMouse: document.getElementById("followMouse").checked,
+    data
+  };
+}
+
+function updateHistoryUI() {
+  const slider = document.getElementById("historySlider");
+  const label = document.getElementById("historyLabel");
+
+  const max = Math.max(0, history.length - 1);
+  slider.max = max;
+
+  if (historyCursor < 0) historyCursor = max;
+  historyCursor = Math.min(historyCursor, max);
+  slider.value = historyCursor;
+
+  if (!history.length || historyCursor === max) {
+    label.textContent = "LIVE";
+  } else {
+    const newest = history[max].time;
+    const current = history[historyCursor].time;
+    label.textContent = `−${Math.max(0, (newest - current) / 1000).toFixed(1)} c`;
+  }
+}
+
+function captureSnapshot(force = false) {
+  if (!force && simTime - lastHistoryCapture < HISTORY_INTERVAL_MS) return;
+
+  const wasLive = historyCursor === history.length - 1 || historyCursor < 0;
+
+  history.push(makeSnapshot());
+
+  if (history.length > HISTORY_MAX_SNAPSHOTS) {
+    history.shift();
+  }
+
+  historyCursor = history.length - 1;
+  lastHistoryCapture = simTime;
+
+  if (wasLive) updateHistoryUI();
+}
+
+function clearHistoryAndCapture() {
+  history = [];
+  historyCursor = -1;
+  lastHistoryCapture = -Infinity;
+  captureSnapshot(true);
+  updateHistoryUI();
+}
+
+function renderStaticState(time = simTime) {
+  clearCanvas();
+
+  ctx.globalCompositeOperation = "lighter";
+  for (const p of particles) {
+    p.draw(time);
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+  drawTarget();
+}
+
+function restoreSnapshot(index) {
+  if (!history.length) return;
+
+  index = Math.max(0, Math.min(index, history.length - 1));
+  const s = history[index];
+
+  Object.assign(params, s.params);
+  syncControls();
+
+  document.getElementById("spawnMode").value = s.spawnMode;
+  document.getElementById("colorSource").value = s.colorSource;
+  document.getElementById("invertColor").checked = s.invertColor;
+  document.getElementById("showTarget").checked = s.showTarget;
+  document.getElementById("followMouse").checked = s.followMouse;
+  updateSpawnLabels();
+
+  setParticleCount(s.data.length / 7);
+
+  const stride = 7;
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const o = i * stride;
+    p.x = s.data[o];
+    p.y = s.data[o + 1];
+    p.vx = s.data[o + 2];
+    p.vy = s.data[o + 3];
+    p.accel = s.data[o + 4];
+    p.seed = s.data[o + 5];
+    p.baseSize = s.data[o + 6];
+  }
+
+  target.x = s.targetX;
+  target.y = s.targetY;
+  simTime = s.time;
+  lastFrameTime = null;
+  historyCursor = index;
+
+  paused = true;
+  document.getElementById("pauseText").textContent = "Продолжить";
+
+  renderStaticState(simTime);
+  updateHistoryUI();
+}
+
+function rewindBy(seconds) {
+  if (!history.length) return;
+
+  const current = historyCursor < 0 ? history.length - 1 : historyCursor;
+  const currentTime = history[current].time;
+  const targetTime = currentTime - seconds * 1000;
+
+  let best = 0;
+  for (let i = current; i >= 0; i--) {
+    best = i;
+    if (history[i].time <= targetTime) break;
+  }
+
+  restoreSnapshot(best);
+}
+
+function respawnSameParams() {
+  simTime = 0;
+  lastFrameTime = null;
+  resetParticles();
+  clearHistoryAndCapture();
+  if (paused) renderStaticState();
+  showToast("Частицы заспавнены заново");
+}
+
+
+function sanitizeFileName(name) {
+  return (name || "particle-preset")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, " ")
+    .slice(0, 80) || "particle-preset";
+}
+
+function currentPresetObject() {
+  return {
+    format: "Particle Lab preset",
+    version: 1,
+    name: document.getElementById("presetName").value.trim() || "Без названия",
+    savedAt: new Date().toISOString(),
+    params: { ...params },
+    ui: {
+      spawnMode: document.getElementById("spawnMode").value,
+      colorSource: document.getElementById("colorSource").value,
+      invertColor: document.getElementById("invertColor").checked,
+      showTarget: document.getElementById("showTarget").checked,
+      followMouse: document.getElementById("followMouse").checked
+    },
+    evolution: { generation: currentGenerationNumber() },
+    target: {
+      x: width > 0 ? target.x / width : 0.5,
+      y: height > 0 ? target.y / height : 0.5
+    }
+  };
+}
+
+function savePresetToFile() {
+  const preset = currentPresetObject();
+
+  const readableHeader =
+`Particle Lab preset
+Название: ${preset.name}
+Сохранено: ${preset.savedAt}
+
+Ниже находится JSON. Его можно открыть обычным Блокнотом,
+а затем загрузить обратно через кнопку «Загрузить параметры .txt».
+
+`;
+
+  const content = readableHeader + JSON.stringify(preset, null, 2);
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[:]/g, "-")
+    .replace(/\..+$/, "");
+
+  a.download = `${sanitizeFileName(preset.name)}_${stamp}.txt`;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast("Параметры сохранены");
+}
+
+function extractJsonFromPresetText(text) {
+  const firstBrace = text.indexOf("{");
+  if (firstBrace === -1) {
+    throw new Error("В файле не найден JSON с параметрами.");
+  }
+
+  return JSON.parse(text.slice(firstBrace));
+}
+
+function applyPresetObject(preset) {
+  if (!preset || typeof preset !== "object") {
+    throw new Error("Некорректный файл пресета.");
+  }
+
+  if (!preset.params || typeof preset.params !== "object") {
+    throw new Error("В файле отсутствует блок params.");
+  }
+
+  applyWorldSettings(preset);
+  if (typeof preset.name === "string") document.getElementById("presetName").value = preset.name;
+  restartGeneratedWorld();
+  resetGenerations(preset.evolution?.generation);
+  showToast(`Загружено: ${preset.name || "пресет"}`);
+}
+
+async function loadPresetFromFile(file) {
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const preset = extractJsonFromPresetText(text);
+    applyPresetObject(preset);
+  } catch (err) {
+    console.error(err);
+    showToast("Не удалось загрузить пресет");
+    alert("Не удалось загрузить параметры.\n\n" + err.message);
+  } finally {
+    document.getElementById("presetFileInput").value = "";
+  }
+}
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+// Parameter generations are small records, independent from particle snapshots.
+const MAX_GENERATIONS = 80;
+let generationHistory = [];
+let generationCursor = -1;
+
+function currentGenerationNumber() {
+  return generationHistory[generationCursor]?.generation || 0;
+}
+
+function captureWorld(generation = currentGenerationNumber(), action = "Начало") {
+  return {
+    generation, action,
+    params: { ...params },
+    ui: {
+      spawnMode: document.getElementById("spawnMode").value,
+      colorSource: document.getElementById("colorSource").value,
+      invertColor: document.getElementById("invertColor").checked,
+      showTarget: document.getElementById("showTarget").checked,
+      followMouse: document.getElementById("followMouse").checked
+    },
+    target: { x: width > 0 ? target.x / width : 0.5, y: height > 0 ? target.y / height : 0.5 }
+  };
+}
+
+function updateGenerationUI() {
+  const record = generationHistory[generationCursor];
+  const label = document.getElementById("generationLabel");
+  label.textContent = `Поколение ${record?.generation || 0}`;
+  label.title = record?.action || "Начало";
+  document.getElementById("previousGeneration").disabled = generationCursor <= 0;
+  document.getElementById("nextGeneration").disabled = generationCursor >= generationHistory.length - 1;
+}
+
+function resetGenerations(generation = 0) {
+  const number = Number.isSafeInteger(generation) && generation >= 0 ? generation : 0;
+  generationHistory = [captureWorld(number)];
+  generationCursor = 0;
+  updateGenerationUI();
+}
+
+function restartGeneratedWorld() {
+  syncControls();
+  setParticleCount(Math.round(params.particleCount));
+  simTime = 0;
+  lastFrameTime = null;
+  resetParticles();
+  clearHistoryAndCapture();
+  if (paused) renderStaticState();
+}
+
+function applyWorldSettings(world) {
+  const source = world.params || {};
+  for (const def of parameterDefinitions.filter(def => def.type === "number")) {
+    const raw = source[def.key];
+    const number = typeof raw === "number" || (typeof raw === "string" && raw.trim()) ? Number(raw) : NaN;
+    const value = Number.isFinite(number) ? Math.min(def.max, Math.max(def.min, number)) : defaults[def.key];
+    params[def.key] = def.key === "particleCount" ? Math.round(value) : value;
+  }
+  const ui = world.ui && typeof world.ui === "object" ? world.ui : {};
+  for (const def of parameterDefinitions.filter(def => def.type === "choice")) {
+    def.set(def.choices.includes(ui[def.key]) ? ui[def.key] : def.choices[0]);
+  }
+  document.getElementById("invertColor").checked = typeof ui.invertColor === "boolean" ? ui.invertColor : false;
+  for (const key of ["showTarget", "followMouse"]) {
+    document.getElementById(key).checked = typeof ui[key] === "boolean" ? ui[key] : true;
+  }
+  const x = world.target?.x, y = world.target?.y;
+  if (typeof x === "number" && Number.isFinite(x) && typeof y === "number" && Number.isFinite(y)) {
+    target.x = Math.max(0, Math.min(1, x)) * width;
+    target.y = Math.max(0, Math.min(1, y)) * height;
+  } else {
+    target.x = width / 2;
+    target.y = height / 2;
+  }
+}
+
+function rememberCurrentGeneration() {
+  const record = generationHistory[generationCursor];
+  if (record) generationHistory[generationCursor] = captureWorld(record.generation, record.action);
+}
+
+function commitGeneratedValues(generated, action) {
+  const changed = generated.filter(([def, value]) => !Object.is(def.get(), value));
+  if (!changed.length) return false;
+  rememberCurrentGeneration();
+  const generation = currentGenerationNumber() + 1;
+  generationHistory = generationHistory.slice(0, generationCursor + 1);
+  for (const [def, value] of changed) def.set(value);
+  generationHistory.push(captureWorld(generation, action));
+  if (generationHistory.length > MAX_GENERATIONS) generationHistory.shift();
+  generationCursor = generationHistory.length - 1;
+  restartGeneratedWorld();
+  updateGenerationUI();
+  return true;
+}
+
+function randomizeParams() {
+  const enabled = parameterDefinitions.filter(canGenerate);
+  if (!enabled.length) { showToast("Нет доступных параметров для R/M"); return; }
+  const generated = enabled.map(def => [def, def.randomize()]);
+  showToast(commitGeneratedValues(generated, "Случайные параметры · R") ? "Новые параметры" : "Значения совпали — повторите R");
+}
+
+function mutateParams() {
+  const enabled = parameterDefinitions.filter(canGenerate);
+  if (!enabled.length) { showToast("Нет доступных параметров для R/M"); return; }
+  if (mutationStrength === 0) { showToast("Сила мутации — 0%"); return; }
+  const strength = mutationStrength / 100;
+  const generated = enabled.map(def => [def, def.mutate(def.get(), strength)]);
+  const changed = commitGeneratedValues(generated, `Мутация · ${mutationStrength}%`);
+  showToast(changed ? `Мутация · поколение ${currentGenerationNumber()}` : "Нет изменений — повторите M или увеличьте силу");
+}
+
+function navigateGeneration(direction) {
+  const next = generationCursor + direction;
+  if (next < 0 || next >= generationHistory.length) return;
+  rememberCurrentGeneration();
+  generationCursor = next;
+  applyWorldSettings(generationHistory[next]);
+  restartGeneratedWorld();
+  updateGenerationUI();
+  showToast(`Поколение ${currentGenerationNumber()}`);
+}
+
+// Compact parameter codes carry settings, not particle trajectories or generator masks.
+function codeChecksum(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function createWorldCode() {
+  const world = captureWorld();
+  const numeric = parameterDefinitions.filter(def => def.type === "number");
+  const payload = {
+    v: 1,
+    p: numeric.map(def => world.params[def.key]),
+    s: world.ui.spawnMode, c: world.ui.colorSource, i: world.ui.invertColor,
+    o: [world.ui.showTarget, world.ui.followMouse],
+    t: [world.target.x, world.target.y], g: world.generation
+  };
+  const json = JSON.stringify(payload);
+  const encoded = btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `PL6.${encoded}.${codeChecksum(json)}`;
+}
+
+function decodeWorldCode(code) {
+  const text = code.trim();
+  if (text.length > 8000 || !/^PL6\.[A-Za-z0-9_-]+\.[a-f0-9]{8}$/.test(text)) {
+    throw new Error("Нужен полный код, начинающийся с PL6.");
+  }
+  const [, encoded, checksum] = text.split(".");
+  const json = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  if (codeChecksum(json) !== checksum) throw new Error("Код повреждён или скопирован не полностью.");
+  const payload = JSON.parse(json);
+  const numeric = parameterDefinitions.filter(def => def.type === "number");
+  if (!payload || payload.v !== 1 || !Array.isArray(payload.p) || payload.p.length !== numeric.length ||
+      !payload.p.every(value => typeof value === "number" && Number.isFinite(value)) ||
+      !parameterDefinitions.find(def => def.key === "spawnMode").choices.includes(payload.s) ||
+      !parameterDefinitions.find(def => def.key === "colorSource").choices.includes(payload.c) ||
+      typeof payload.i !== "boolean" || !Array.isArray(payload.o) || payload.o.length !== 2 ||
+      !payload.o.every(value => typeof value === "boolean") ||
+      !Array.isArray(payload.t) || payload.t.length !== 2 ||
+      !payload.t.every(value => typeof value === "number" && Number.isFinite(value)) ||
+      !Number.isSafeInteger(payload.g) || payload.g < 0) {
+    throw new Error("В коде некорректные параметры.");
+  }
+  return {
+    params: Object.fromEntries(numeric.map((def, i) => [def.key, payload.p[i]])),
+    ui: {spawnMode: payload.s, colorSource: payload.c, invertColor: payload.i,
+         showTarget: payload.o[0], followMouse: payload.o[1]},
+    target: {x: payload.t[0], y: payload.t[1]}, generation: payload.g
+  };
+}
+
+async function copyWorldCode() {
+  const input = document.getElementById("worldCode");
+  const code = createWorldCode();
+  input.value = code;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText(code);
+    document.getElementById("codeStatus").textContent = "Код скопирован. Его можно отправить и вставить в другой Particle Lab v6.";
+    showToast("Код скопирован");
+  } catch {
+    input.focus(); input.select();
+    document.getElementById("codeStatus").textContent = "Код выделен. Нажмите Ctrl+C (на Mac — ⌘C), чтобы скопировать.";
+    showToast("Код готов к копированию");
+  }
+}
+
+function applyWorldCode() {
+  try {
+    const world = decodeWorldCode(document.getElementById("worldCode").value);
+    applyWorldSettings(world);
+    restartGeneratedWorld();
+    resetGenerations(world.generation);
+    document.getElementById("presetName").value = "Из кода";
+    document.getElementById("codeStatus").textContent = "Параметры восстановлены. Частицы появились заново.";
+    showToast("Код применён");
+  } catch (error) {
+    document.getElementById("codeStatus").textContent = error.message || "Не удалось прочитать код.";
+    showToast("Не удалось применить код");
+  }
+}
+
+
+function resetAll() {
+  Object.assign(params, defaults);
+  document.getElementById("spawnMode").value = "ring";
+  document.getElementById("colorSource").value = "distance";
+  document.getElementById("invertColor").checked = false;
+  syncControls();
+  setParticleCount(params.particleCount);
+  centerTarget();
+  simTime = 0;
+  lastFrameTime = null;
+  resetParticles();
+  clearHistoryAndCapture();
+  if (paused) renderStaticState();
+  resetGenerations();
+  showToast("Сброшено");
+}
+
+function togglePause() {
+  if (paused) {
+    if (historyCursor >= 0 && historyCursor < history.length - 1) {
+      history = history.slice(0, historyCursor + 1);
+      lastHistoryCapture = simTime;
+      updateHistoryUI();
+    }
+
+    paused = false;
+    lastFrameTime = null;
+  } else {
+    paused = true;
+    historyCursor = history.length - 1;
+    updateHistoryUI();
+  }
+
+  document.getElementById("pauseText").textContent = paused ? "Продолжить" : "Пауза";
+  showToast(paused ? "Пауза" : "Продолжено");
+}
+
+let toastTimer;
+function showToast(text) {
+  toast.textContent = text;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 900);
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  if (!document.getElementById("followMouse").checked) return;
+  target.x = e.clientX;
+  target.y = e.clientY;
+});
+
+canvas.addEventListener("click", (e) => {
+  if (document.getElementById("followMouse").checked) return;
+  target.x = e.clientX;
+  target.y = e.clientY;
+});
+
+document.getElementById("spawnMode").addEventListener("change", () => {
+  updateSpawnLabels();
+  respawnSameParams();
+});
+document.getElementById("randomize").addEventListener("click", randomizeParams);
+document.getElementById("mutate").addEventListener("click", mutateParams);
+document.getElementById("previousGeneration").addEventListener("click", () => navigateGeneration(-1));
+document.getElementById("nextGeneration").addEventListener("click", () => navigateGeneration(1));
+document.getElementById("copyWorldCode").addEventListener("click", copyWorldCode);
+document.getElementById("applyWorldCode").addEventListener("click", applyWorldCode);
+document.getElementById("hidePanel").addEventListener("click", togglePanel);
+document.getElementById("showPanel").addEventListener("click", togglePanel);
+document.getElementById("respawn").addEventListener("click", respawnSameParams);
+document.getElementById("reset").addEventListener("click", resetAll);
+document.getElementById("pause").addEventListener("click", togglePause);
+document.getElementById("center").addEventListener("click", centerTarget);
+document.getElementById("rewind1").addEventListener("click", () => rewindBy(1));
+document.getElementById("rewind3").addEventListener("click", () => rewindBy(3));
+
+document.getElementById("savePreset").addEventListener("click", savePresetToFile);
+document.getElementById("loadPreset").addEventListener("click", () => {
+  document.getElementById("presetFileInput").click();
+});
+document.getElementById("presetFileInput").addEventListener("change", (e) => {
+  loadPresetFromFile(e.target.files[0]);
+});
+
+document.getElementById("historySlider").addEventListener("input", (e) => {
+  restoreSnapshot(Number(e.target.value));
+});
+
+// Physical key codes stay identical on English, Russian and other layouts.
+const keyboardActions = {
+  KeyR: randomizeParams,
+  KeyM: mutateParams,
+  KeyN: respawnSameParams,
+  KeyZ: event => rewindBy(event.shiftKey ? 3 : 1),
+  KeyS: savePresetToFile,
+  KeyL: () => document.getElementById("presetFileInput").click(),
+  KeyH: togglePanel,
+  KeyC: () => { centerTarget(); showToast("Цель в центре"); },
+  Space: togglePause
+};
+
+function togglePanel() {
+  const hidden = panel.classList.toggle("hidden");
+  panel.inert = hidden;
+  panel.setAttribute("aria-hidden", String(hidden));
+  if (hidden) document.getElementById("showPanel").focus();
+  else document.getElementById("hidePanel").focus();
+}
+
+addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.isComposing) return;
+  const source = e.target;
+  if (source instanceof HTMLElement &&
+      (source.isContentEditable || source.matches('input[type="text"], textarea'))) return;
+  if (e.code === "Space" && source instanceof HTMLElement &&
+      source.matches('button, select, input[type="checkbox"]')) return;
+  const action = keyboardActions[e.code];
+  if (action) {
+    e.preventDefault();
+    action(e);
+  }
+});
+
+
+for (const key of ["colorSource", "invertColor", "showTarget", "followMouse"]) {
+  document.getElementById(key).addEventListener("change", () => {
+    if (paused) renderStaticState();
+  });
+}
+
+function animate(frameTime) {
+  requestAnimationFrame(animate);
+
+  if (lastFrameTime === null) lastFrameTime = frameTime;
+  const dt = Math.min(50, Math.max(0, frameTime - lastFrameTime));
+  lastFrameTime = frameTime;
+
+  if (paused) return;
+
+  simTime += dt;
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(5, 5, 5, ${params.trail})`;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalCompositeOperation = "lighter";
+
+  for (const p of particles) {
+    p.update(simTime);
+    p.draw(simTime);
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+  drawTarget();
+
+  captureSnapshot();
+}
+
+resize();
+buildControls(physicsDefs, physicsControls);
+buildControls(spawnDefs, spawnControls);
+buildControls(colorDefs, colorControls);
+initializeUI();
+resetGenerations();
+setParticleCount(params.particleCount);
+clearCanvas();
+clearHistoryAndCapture();
+animate(0);
+</script>
+
+</body>
+</html>
